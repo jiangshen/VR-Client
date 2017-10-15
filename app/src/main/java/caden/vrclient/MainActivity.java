@@ -164,6 +164,18 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         return f / (float)Math.PI * 180;
     }
 
+    public int limitYaw (int value) {
+        int limited;
+        if (value < -60) {
+            limited = 180;
+        } else if (value < 0) {
+            limited = 0;
+        } else {
+            limited = value;
+        }
+        return limited;
+    }
+
     @Override
     public void onSensorChanged(SensorEvent event) {
         if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
@@ -204,20 +216,24 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //            output = String.format("Pitch: %.2f, Yaw: %.2f", (radToDeg(raw_pitch) * -1f) - 90f, radToDeg(raw_yaw));
 
 
+            if (!initialYawVisited) {
+                initialYawValue = scaleConvert((int)radToDeg(raw_yaw), -180, 180, 0, 160);
+
+            }
+
             robotCameraPitch = cutRange(scaleLinearTranslation(scaleConvert((int)((radToDeg(raw_pitch) * -1f) - 90f), -270, 90, 0, 180), 135));
-            robotCameraYaw = scaleConvert((int)radToDeg(raw_yaw), -180, 180, 0, 160);
+            robotCameraYaw = 160 - scaleConvert((int)radToDeg(raw_yaw), -180, 180, 0, 160);
+//            robotCameraYaw = limitYaw((int)radToDeg(raw_yaw));
 
-            output = String.format("Pitch: %d, Yaw: %.2f, %d", robotCameraPitch, radToDeg(raw_yaw), robotCameraYaw);
 
-//            if (!initialYawVisited) {
-//                initialYawValue = robotCameraYaw;
-//                robotCameraYaw = 90;
-//            }
+
+            output = String.format("Pitch: %d, Yaw: %d", robotCameraPitch, robotCameraYaw);
+
 //
 //            int offset = initialYawValue - 90;
 //            robotCameraYaw = scaleLinearTranslation(robotCameraYaw, offset);
 //
-//            initialYawVisited = true;
+            initialYawVisited = true;
 
 
 
