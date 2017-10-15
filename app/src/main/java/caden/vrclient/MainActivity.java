@@ -5,12 +5,16 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
+
+import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
@@ -31,6 +35,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     WebView wv2;
     TextView tvGyro;
 
+    String url;
+
+    ServerConnect svc;
+
+    private final String UDPIP = "192.168.8.160";
+
+    
+
+    private final int SEND_INTERVAL = 5000;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,16 +59,28 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         manager.registerListener(this, magnometer, SensorManager.SENSOR_DELAY_GAME);
 
         tvGyro = (TextView) findViewById(R.id.tv_gyro);
+
+        url = "http://192.168.8.174:8080/stream_simple.html";
+
         wv1 = (WebView) findViewById(R.id.web_view1);
         wv2 = (WebView) findViewById(R.id.web_view2);
-        WebSettings webSettings = wv1.getSettings();
-        webSettings.setJavaScriptEnabled(true);
+        wv1.getSettings().setJavaScriptEnabled(true);
+        wv2.getSettings().setJavaScriptEnabled(true);
 
         wv1.setWebViewClient(new WebViewClient());
         wv2.setWebViewClient(new WebViewClient());
 
-        wv1.loadUrl("http://www.apple.com");
-        wv2.loadUrl("http://google.com");
+        wv1.setInitialScale(145);
+        wv2.setInitialScale(145);
+
+//        wv1.getSettings().setLoadWithOverviewMode(true);
+//        wv1.getSettings().setUseWideViewPort(true);
+//
+//        wv2.getSettings().setLoadWithOverviewMode(true);
+//        wv2.getSettings().setUseWideViewPort(true);
+
+        wv1.loadUrl(url);
+        wv2.loadUrl(url);
 
         startOrientation = null;
 
@@ -71,11 +97,41 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //
 //        gyro = sm.getDefaultSensor(Sensor.TYPE_GRAVITY);
 //        sm.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME);
+
+        svc = new ServerConnect();
+
+        sendOrientation();
+    }
+
+    public void sendOrientation() {
+
+       final JSONObject data = new JSONObject();
+        try {
+            data.put("yaw", 30);
+            data.put("pitch", -120);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            public void run() {
+                svc.sendMessage(UDPIP, 4000, data.toString());
+
+                handler.postDelayed(this, SEND_INTERVAL);
+            }
+        }, SEND_INTERVAL);
+
     }
 
 
     public void pause() {
         manager.unregisterListener(this);
+    }
+
+    public float radToDeg(float f) {
+        return f / (float)Math.PI * 180;
     }
 
     @Override
@@ -100,14 +156,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         String output = "";
 
         if(orientation != null && startOrientation != null) {
+
+            float yall = orientation[0] - startOrientation[0];
             float pitch = orientation[1] - startOrientation[1];
             float roll = orientation[2] - startOrientation[2];
-            float yall = orientation[0] - startOrientation[0];
 
             float xSpeed = 2 * roll * getWindowManager().getDefaultDisplay().getWidth() / 1000f;
             float ySpeed = pitch * getWindowManager().getDefaultDisplay().getHeight() / 1000f;
 
-            output = String.format("Pitch: %.2f, Roll: %.2f, Yall: %.2f, xSpeed: %.2f, ySpeed: %.2f", pitch, roll, yall, xSpeed, ySpeed);
+            output = String.format("Pitch: %.2f, Roll: %.2f, Yall: %.2f, xSpeed: %.2f, ySpeed: %.2f", radToDeg(pitch), radToDeg(roll), radToDeg(yall), xSpeed, ySpeed);
 
         }
 
