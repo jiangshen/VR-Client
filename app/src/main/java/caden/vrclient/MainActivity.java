@@ -32,19 +32,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
     WebView wv1;
-    WebView wv2;
     TextView tvGyro;
 
     String url;
 
     ServerConnect svc;
 
-    private final String UDPIP = "192.168.8.160";
+    private final String UDPIP = "192.168.8.174";
 
     private int robotCameraPitch;
     private int robotCameraYaw;
 
-    private final int SEND_INTERVAL = 300;
+    private final int SEND_INTERVAL = 200;
+
+    private boolean initialYawVisited;
+    private int initialYawValue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,15 +66,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         url = "http://192.168.8.174:8080/stream_simple.html";
 
         wv1 = (WebView) findViewById(R.id.web_view1);
-        wv2 = (WebView) findViewById(R.id.web_view2);
         wv1.getSettings().setJavaScriptEnabled(true);
-        wv2.getSettings().setJavaScriptEnabled(true);
 
         wv1.setWebViewClient(new WebViewClient());
-        wv2.setWebViewClient(new WebViewClient());
 
-        wv1.setInitialScale(145);
-        wv2.setInitialScale(145);
+        wv1.setInitialScale(222);
 
 //        wv1.getSettings().setLoadWithOverviewMode(true);
 //        wv1.getSettings().setUseWideViewPort(true);
@@ -81,10 +79,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //        wv2.getSettings().setUseWideViewPort(true);
 
         wv1.loadUrl(url);
-        wv2.loadUrl(url);
 
         robotCameraPitch = 0;
         robotCameraYaw = 0;
+        initialYawVisited = false;
 
         startOrientation = null;
 
@@ -114,13 +112,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             public void run() {
                 final JSONObject data = new JSONObject();
                 try {
-                    data.put("yaw", robotCameraYaw);
                     data.put("pitch", robotCameraPitch);
+                    data.put("yaw", robotCameraYaw);
 
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                svc.sendMessage(UDPIP, 4000, data.toString());
+                svc.sendMessage(UDPIP, 5005, data.toString());
 
                 handler.postDelayed(this, SEND_INTERVAL);
             }
@@ -136,6 +134,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         float valueScaled = (value - leftMin) / (float)leftSpan;
 
         return rightMin + (int)(valueScaled * rightSpan);
+    }
+
+    public int scaleLinearTranslation(int value, int offset) {
+        int translated = value - offset;
+        if (translated < 0) {
+            translated = 180 - translated * -1;
+        }
+        return translated;
+    }
+
+    public int cutRange(int value) {
+        value = value * 2;
+        int cutted;
+        if (value > 90) {
+            cutted = 90;
+            if (value > 270) cutted = 0;
+        } else {
+            cutted = value;
+        }
+        return cutted;
     }
 
     public void pause() {
@@ -169,8 +187,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if(orientation != null && startOrientation != null) {
 
-            float raw_pitch = orientation[2] - startOrientation[2];
-            float raw_yaw = orientation[0] - startOrientation[0];
+            float raw_pitch = orientation[2];
+            float raw_yaw = orientation[0];
 
 //            float yaw = orientation[0] - startOrientation[0];
 //            float pitch = orientation[1] - startOrientation[1];
@@ -185,10 +203,22 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 //            output = String.format("Pitch: %.2f, Yaw: %.2f", (radToDeg(raw_pitch) * -1f) - 90f, radToDeg(raw_yaw));
 
-            robotCameraYaw = scaleConvert((int)radToDeg(raw_yaw), -260, 67, 0, 180);
-            robotCameraPitch = (int)((radToDeg(raw_pitch) * -1f) - 90f);
 
-            output = String.format("Pitch: %d, Yaw: %d", robotCameraPitch, robotCameraYaw);
+            robotCameraPitch = cutRange(scaleLinearTranslation(scaleConvert((int)((radToDeg(raw_pitch) * -1f) - 90f), -270, 90, 0, 180), 135));
+            robotCameraYaw = scaleConvert((int)radToDeg(raw_yaw), -180, 180, 0, 160);
+
+            output = String.format("Pitch: %d, Yaw: %.2f, %d", robotCameraPitch, radToDeg(raw_yaw), robotCameraYaw);
+
+//            if (!initialYawVisited) {
+//                initialYawValue = robotCameraYaw;
+//                robotCameraYaw = 90;
+//            }
+//
+//            int offset = initialYawValue - 90;
+//            robotCameraYaw = scaleLinearTranslation(robotCameraYaw, offset);
+//
+//            initialYawVisited = true;
+
 
 
         }
