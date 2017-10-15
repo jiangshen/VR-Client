@@ -41,9 +41,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     private final String UDPIP = "192.168.8.160";
 
-    
+    private int robotCameraPitch;
+    private int robotCameraYaw;
 
-    private final int SEND_INTERVAL = 5000;
+    private final int SEND_INTERVAL = 300;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +83,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         wv1.loadUrl(url);
         wv2.loadUrl(url);
 
+        robotCameraPitch = 0;
+        robotCameraYaw = 0;
+
         startOrientation = null;
 
 //        sm = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -105,18 +109,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     public void sendOrientation() {
 
-       final JSONObject data = new JSONObject();
-        try {
-            data.put("yaw", 30);
-            data.put("pitch", -120);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         final Handler handler = new Handler();
         handler.postDelayed(new Runnable() {
             public void run() {
+                final JSONObject data = new JSONObject();
+                try {
+                    data.put("yaw", robotCameraYaw);
+                    data.put("pitch", robotCameraPitch);
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 svc.sendMessage(UDPIP, 4000, data.toString());
 
                 handler.postDelayed(this, SEND_INTERVAL);
@@ -125,6 +128,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
+
+    public int scaleConvert(int value, int leftMin, int leftMax, int rightMin, int rightMax) {
+        int leftSpan = leftMax - leftMin;
+        int rightSpan = rightMax - rightMin;
+
+        float valueScaled = (value - leftMin) / (float)leftSpan;
+
+        return rightMin + (int)(valueScaled * rightSpan);
+    }
 
     public void pause() {
         manager.unregisterListener(this);
@@ -157,14 +169,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if(orientation != null && startOrientation != null) {
 
-            float yall = orientation[0] - startOrientation[0];
-            float pitch = orientation[1] - startOrientation[1];
-            float roll = orientation[2] - startOrientation[2];
+            float raw_pitch = orientation[2] - startOrientation[2];
+            float raw_yaw = orientation[0] - startOrientation[0];
 
-            float xSpeed = 2 * roll * getWindowManager().getDefaultDisplay().getWidth() / 1000f;
-            float ySpeed = pitch * getWindowManager().getDefaultDisplay().getHeight() / 1000f;
+//            float yaw = orientation[0] - startOrientation[0];
+//            float pitch = orientation[1] - startOrientation[1];
+//            float roll = orientation[2] - startOrientation[2];
 
-            output = String.format("Pitch: %.2f, Roll: %.2f, Yall: %.2f, xSpeed: %.2f, ySpeed: %.2f", radToDeg(pitch), radToDeg(roll), radToDeg(yall), xSpeed, ySpeed);
+//            float yaw = orientation[0] - startOrientation[0];
+//            float pitch = orientation[1] - startOrientation[1];
+//            float roll = orientation[2] - startOrientation[2];
+
+//            float xSpeed = 2 * roll * getWindowManager().getDefaultDisplay().getWidth() / 1000f;
+//            float ySpeed = pitch * getWindowManager().getDefaultDisplay().getHeight() / 1000f;
+
+//            output = String.format("Pitch: %.2f, Yaw: %.2f", (radToDeg(raw_pitch) * -1f) - 90f, radToDeg(raw_yaw));
+
+            robotCameraYaw = scaleConvert((int)radToDeg(raw_yaw), -260, 67, 0, 180);
+            robotCameraPitch = (int)((radToDeg(raw_pitch) * -1f) - 90f);
+
+            output = String.format("Pitch: %d, Yaw: %d", robotCameraPitch, robotCameraYaw);
+
 
         }
 
